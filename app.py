@@ -6,11 +6,14 @@ import h3
 st.set_page_config(layout="wide")
 st.title("Pilot Traffic - Home")
 
-# === 1️⃣ Load data ===
-df = pd.read_csv(r"C:\Data Analyst\QA Dataset\traffic_dataset.csv")
+# Load data
+# df = pd.read_csv(r"C:\Data Analyst\QA Dataset\traffic_dataset.csv")
+# df['date'] = pd.to_datetime(df['date'])
+
+df = pd.read_csv("traffic_dataset.csv")
 df['date'] = pd.to_datetime(df['date'])
 
-# === 2️⃣ Sidebar filter interaktif ===
+# Sidebar filter
 selected_hour = st.sidebar.slider("Pilih jam", 0, 23, 18)
 selected_date = st.sidebar.date_input("Pilih tanggal", df['date'].min())
 show_arc = st.sidebar.checkbox("Tampilkan Home → Traffic", value=False)
@@ -24,17 +27,15 @@ df_traffic = df[
 if df_traffic.empty:
     st.warning("Tidak ada data untuk filter ini.")
 else:
-    # === 3️⃣ Aggregate count_visitor per traffic H3 ===
+    #  Aggregate count_visitor per traffic H3
     traffic_agg = df_traffic.groupby("traffic_h3_8")["count_visitor"].sum().reset_index()
 
-    # Fungsi H3 ke lat/lon
     def h3_to_latlon(h, count):
         lat, lon = h3.h3_to_geo(h)
         return {"h3": h, "lat": lat, "lon": lon, "count_visitor": count}
 
     traffic_hex = pd.DataFrame([h3_to_latlon(h, c) for h, c in zip(traffic_agg["traffic_h3_8"], traffic_agg["count_visitor"])])
 
-    # Gradasi warna: visitor rendah → terang, tinggi → gelap
     min_count = traffic_hex["count_visitor"].min()
     max_count = traffic_hex["count_visitor"].max()
     def color_scale(count):
@@ -44,7 +45,7 @@ else:
 
     traffic_hex["color"] = traffic_hex["count_visitor"].apply(color_scale)
 
-    # === 4️⃣ Sidebar Table untuk pilih H3 ===
+    # Sidebar Table
     st.sidebar.subheader("Pilih H3 Traffic")
     h3_list = traffic_agg.sort_values("count_visitor", ascending=False)
     selected_h3_table = st.sidebar.radio(
@@ -53,10 +54,10 @@ else:
         index=0
     )
 
-    # === 5️⃣ Layer traffic H3 ===
-    if selected_h3_table:  # fokus hanya H3 yang dipilih
+    # Layer traffic H3
+    if selected_h3_table: 
         traffic_hex_filtered = traffic_hex[traffic_hex["h3"] == selected_h3_table]
-    else:  # semua H3
+    else:  
         traffic_hex_filtered = traffic_hex
 
     traffic_layer = pdk.Layer(
@@ -70,7 +71,7 @@ else:
 
     layers = [traffic_layer]
 
-    # === 6️⃣ Layer Arc/Home jika dicentang dan H3 dipilih ===
+ 
     if show_arc and selected_h3_table:
         df_filtered = df_traffic[df_traffic["traffic_h3_8"] == selected_h3_table]
 
@@ -98,7 +99,7 @@ else:
 
         layers.extend([home_layer, arc_layer])
 
-    # === 7️⃣ View State ===
+
     view_state = pdk.ViewState(
         latitude=df_traffic["dest_lat"].mean(),
         longitude=df_traffic["dest_lon"].mean(),
@@ -107,7 +108,7 @@ else:
         bearing=0
     )
 
-    # === 8️⃣ Deck ===
+
     
     r = pdk.Deck(
         layers=layers,
